@@ -1,7 +1,7 @@
 const ajax = new XMLHttpRequest();
 const NEWS_URL = "https://api.hnpwa.com/v0/news/1.json";
 const CONTENT_URL = "https://api.hnpwa.com/v0/item/@id.json";
-const container = document.getElementById("root") as HTMLDivElement;
+const container: HTMLElement | null = document.getElementById("root");
 const content = document.createElement("div");
 /**뉴스 모델 타입 */
 type NewsType = {
@@ -47,7 +47,7 @@ const store: Store = {
   feeds: [],
 };
 
-function getData(url: string) {
+function getData<AjaxResponse>(url: string): AjaxResponse {
   ajax.open("GET", url, false);
   ajax.send();
 
@@ -59,6 +59,14 @@ function makeFeeds(feeds: NewsContents[]) {
     feeds[i].read = false;
   }
   return feeds;
+}
+
+function updateView(html: string): void {
+  if (container) {
+    container.innerHTML = html;
+  } else {
+    console.error("최상위 컨테이너가 없어 UI를 진행하지 못합니다.");
+  }
 }
 
 function newsFeed() {
@@ -126,7 +134,7 @@ function newsFeed() {
   );
   template = template.replace("{{__next_page__}}", `${store.currentPage + 1}`);
 
-  container.innerHTML = template;
+  updateView(template);
 }
 
 function newsDetail() {
@@ -191,9 +199,8 @@ function newsDetail() {
 
     return commentString.join("");
   }
-  container.innerHTML = template.replace(
-    "{{__comments__}}",
-    makeComment(newsContent.comments)
+  updateView(
+    template.replace("{{__comments__}}", makeComment(newsContent.comments))
   );
 }
 
