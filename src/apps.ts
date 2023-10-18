@@ -1,60 +1,69 @@
-const ajax = new XMLHttpRequest();
 const NEWS_URL = "https://api.hnpwa.com/v0/news/1.json";
 const CONTENT_URL = "https://api.hnpwa.com/v0/item/@id.json";
 const container: HTMLElement | null = document.getElementById("root");
 const content = document.createElement("div");
-/**뉴스 모델 타입 */
-type NewsType = {
-  time: number;
-  time_ago: string;
-  type: string;
-  url: string;
-  user: string;
-};
-/**뉴스 맥락 타입 */
-type NewsContext = NewsType & {
-  comments_count: number;
-  domain: string;
-  id: number;
-  points: number;
-  title: string;
-};
-/**뉴스 댓글 타입 */
-type NewsComments = NewsType & {
-  comments: NewsComments[];
-  comments_count: number;
-  content: string;
-  id: number;
-  level: number;
-};
-/**뉴스 내용 타입 */
-type NewsContents = NewsContext & {
-  read?: boolean;
-};
-/**뉴스 상세 내용 타입 */
-type NewDetailContents = NewsContext & {
-  comments: NewsComments[];
-  content: string;
-};
 
-type Store = {
+interface Store {
   currentPage: number;
-  feeds: NewsContents[];
-};
+  feeds: NewsFeed[];
+}
+
+interface News {
+  readonly id: number;
+  readonly time_ago: string;
+  readonly title: string;
+  readonly url: string;
+  readonly user: string;
+  readonly content: string;
+}
+
+interface NewsFeed extends News {
+  readonly comments_count: number;
+  readonly points: number;
+  read?: boolean;
+}
+
+interface NewsDetail extends News {
+  readonly comments: NewsComment[];
+}
+
+interface NewsComment extends News {
+  readonly comments: NewsComment[];
+  readonly level: number;
+}
 
 const store: Store = {
   currentPage: 1,
   feeds: [],
 };
 
-function getData<AjaxResponse>(url: string): AjaxResponse {
-  ajax.open("GET", url, false);
-  ajax.send();
+class Api {
+  url: string;
+  ajax: XMLHttpRequest;
+  constructor(url: string) {
+    this.url = url;
+    this.ajax = new XMLHttpRequest();
+  }
+  getRequest<AjaxResponse>(): AjaxResponse {
+    this.ajax.open("GET", this.url, false);
+    this.ajax.send();
 
-  return JSON.parse(ajax.response);
+    return JSON.parse(this.ajax.response);
+  }
 }
 
-function makeFeeds(feeds: NewsContents[]) {
+class NewsFeedApi extends Api {
+  getData(): NewsFeed[] {
+    return this.getRequest<NewsFeed[]>();
+  }
+}
+class NewsDetailApi extends Api {
+  getData(): NewsDetail {
+    return this.getRequest<NewsDetail>();
+  }
+}
+
+function makeFeeds(feeds: NewsFeed[]) {
   for (let i = 0; i < feeds.length; i++) {
     feeds[i].read = false;
   }
@@ -69,7 +78,56 @@ function updateView(html: string): void {
   }
 }
 
+class View {
+  template: string;
+  newsList: string[] = [];
+
+  constructor(template: string) {
+    this.template = template;
+  }
+}
+
+class NewsFeed {
+  template: string;
+  feeds: NewsFeed[];
+  api: NewsFeedApi;
+  constructor() {
+    this.template = `<div class="bg-gray-600 min-h-screen">
+    <div class="bg-white text-xl">
+      <div class="mx-auto px-4">
+        <div class="flex justify-between items-center py-6">
+          <div class="flex justify-start">
+            <h1 class="font-extrabold">Hacker News</h1>
+          </div>
+          <div class="items-center justify-end">
+            <a href="#/page/{{__prev_page__}}" class="text-gray-500">
+              Previous
+            </a>
+            <a href="#/page/{{__next_page__}}" class="text-gray-500 ml-4">
+              Next
+            </a>
+          </div>
+        </div> 
+      </div>
+    </div>
+    <div class="p-4 text-2xl text-gray-700">
+      {{__news_feed__}}        
+    </div>
+  </div>`;
+    this.api = new NewsFeedApi(NEWS_URL);
+    this.feeds = store.feeds;
+
+    if (newsFeed.length === 0) {
+      this.feeds = store.feeds = makeFeeds(this.api.getData());
+    }
+  }
+  render(): void {
+    store.currentPage = Number(location.hash.substr(7) || 1);
+  }
+}
+
 function newsFeed() {
+  const api = new NewsFeedApi(NEWS_URL);
   let newsFeed = store.feeds;
   const newsList: string[] = [];
   let template = `
@@ -98,7 +156,7 @@ function newsFeed() {
   `;
 
   if (newsFeed.length === 0) {
-    newsFeed = store.feeds = makeFeeds(getData(NEWS_URL));
+    newsFeed = store.feeds = makeFeeds(api.getData());
   }
 
   for (let i = (store.currentPage - 1) * 10; i < store.currentPage * 10; i++) {
@@ -139,9 +197,8 @@ function newsFeed() {
 
 function newsDetail() {
   const id = location.hash.substr(7);
-  const newsContent: NewDetailContents = getData(
-    CONTENT_URL.replace("@id", id)
-  );
+  const api = new NewsDetailApi(CONTENT_URL.replace("@id", id));
+  const newsContent: NewsDetail = api.getData();
   let template = `
   <div class="bg-gray-600 min-h-screen pb-8">
     <div class="bg-white text-xl">
@@ -178,7 +235,7 @@ function newsDetail() {
     }
   }
 
-  function makeComment(comments: NewsComments[], called = 0) {
+  function makeComment(comments: NewsComment[], called = 0) {
     const commentString: string[] = [];
 
     for (let i = 0; i < comments.length; i++) {
