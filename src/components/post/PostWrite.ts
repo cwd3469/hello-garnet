@@ -23,7 +23,8 @@ class PostWrite {
   
     <label for="email">이메일 :</label>
     <input type="email" name="email" id="email">
-  
+    <label for="id">아이디 :</label>
+    <input type="text" name="id" id="id">
     <label for="password">비밀번호 :</label>
     <input type="password" name="password" id="password">
   
