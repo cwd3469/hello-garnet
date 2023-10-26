@@ -218,7 +218,7 @@ function newsDetail() {
 
     <div class="h-full border rounded-xl bg-white m-6 p-4 ">
       <h2>${newsContent.title}</h2>
-      <div class="text-gray-400 h-20">
+      <div class="text-gray-400 h-22">
         ${newsContent.content}
       </div>
 
